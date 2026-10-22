@@ -24,7 +24,7 @@
 #define SAMPLE_COUNT 3  // Number of samples to average
 
 
-static char *TAG = "tsc2046";
+static const char *TAG = "tsc2046";
 static spi_device_handle_t tsc2046_spi_dev;
 static SemaphoreHandle_t tsc2046_cal_data_mutex;
 

@@ -15,7 +15,7 @@
 
 #define BUZZER_QUEUE_LENGTH 10
 
-static char *TAG = "buzzer";
+static const char *TAG = "buzzer";
 static QueueHandle_t buzzer_queue;
 
 // Function prototypes
@@ -93,7 +93,7 @@ static void buzzer_init(void) {
             .gpio_num = BUZZER_PIN_NUM,
             .speed_mode = BUZZER_LEDC_SPEED_MODE,
             .channel = BUZZER_LEDC_CHANNEL,
-            .intr_type = LEDC_INTR_DISABLE,
+            /* intr_type is deprecated in ESP-IDF v6, the driver handles the interrupt */
             .timer_sel = BUZZER_LEDC_TIMER,
             .duty = 0,
             .hpoint = 0,

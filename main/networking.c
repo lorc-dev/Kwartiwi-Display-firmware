@@ -4,6 +4,7 @@
  * @todo  - Add support for static IP configuration in STA mode
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
@@ -242,7 +243,7 @@ esp_err_t networking_wifi_connect(void) {
 
     ESP_LOGI(TAG, "networking_wifi_connect : Connecting to SSID: %s", config->sta.ssid);
 
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, config));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, config));
     ESP_ERROR_CHECK(esp_wifi_connect());
     xSemaphoreGive(networking_config_mutex);
 

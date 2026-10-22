@@ -150,8 +150,7 @@ static void init_display(void) {
             },
             .bus_width = 8,
             .max_transfer_bytes = MAX_TRANSFER_SIZE,
-            .psram_trans_align = 64,
-            .sram_trans_align = 4,
+            .dma_burst_size = 64,
     };
     ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &i80_bus));
 
@@ -175,9 +174,9 @@ static void init_display(void) {
 
     // Set up the display panel
     esp_lcd_panel_dev_config_t panel_config = {
-            .reset_gpio_num = UI_TASK_PIN_NUM_LCD_RST,
-            .rgb_endian = LCD_RGB_ENDIAN_BGR,
+            .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,
             .bits_per_pixel = 16,
+            .reset_gpio_num = UI_TASK_PIN_NUM_LCD_RST,
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle));
 

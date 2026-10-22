@@ -36,6 +36,7 @@ typedef struct {
 #define COLOR_KWARTIWI_GREY lv_color_hex(0x4D4D4D)
 #define COLOR_KWARTIWI_GREEN lv_color_hex(0x6AD011)
 #define COLOR_KWARTIWI_BLUE lv_color_hex(0x623CEA)
+#define COLOR_KWARTIWI_YELLOW lv_color_hex(0xFFD700)
 #define COLOR_WHITE lv_color_hex(0xFFFFFF)
 
 #define SIMULATOR 0

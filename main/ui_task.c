@@ -587,6 +587,14 @@ static void update_ui_on_event(void* handler_arg, esp_event_base_t base, int32_t
                 }
                 history_set = true;
                 break;
+            case DATA_MANAGER_NEW_USAGE_DATA_AVAILABLE:
+                ui_set_usage_today(meter_data->electricity_usage_today_kwh,
+                                   meter_data->water_usage_today_l,
+                                   meter_data->gas_usage_today_m3);
+                ui_set_cost_today(meter_data->electricity_cost_today_eur,
+                                  meter_data->water_cost_today_eur,
+                                  meter_data->gas_cost_today_eur);
+                break;
         }
         xSemaphoreGive(data_manager_mutex_handle);
 

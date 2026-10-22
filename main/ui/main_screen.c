@@ -3,7 +3,8 @@
  * @brief Main screen
  *
  * This screen is the main screen of the application.
- * It shows the current power consumption, the current time, the predicted peak and the peak demand chart.
+ * It shows the current power consumption, the current time, the predicted peak, the peak demand chart
+ * and the electricity, water and gas usage totals for today.
  *
  * The following functions can be used to set the data this screen uses:
  *   - ui_set_power_consumption(uint16_t value)
@@ -11,12 +12,12 @@
  *   - ui_reset_peak_demand_chart_data(void)
  *   - ui_add_peak_demand_data_point(time_t time, uint16_t value)
  *   - ui_set_predicted_peak(uint16_t value)
+ *   - ui_set_usage_today(float electricity_kwh, float water_l, float gas_m3)
+ *   - ui_set_cost_today(float electricity_eur, float water_eur, float gas_eur)
  *   - ui_set_wifi_status(bool connected)
  *   - ui_set_connected_status(bool connected)
  *
  * @todo Load the settings screen when the icon is pressed instead of the touch cal screen
- * @todo Add helper functions to set the energy chart data
- * @todo Show the correct time of the day under the energy chart
  */
 
 #include <stdio.h>
@@ -33,11 +34,19 @@
 #define PEAK_DEMAND_CHART_PADDING_PX 7 // (240 - 225 - 1) / 2
 #define MAX_PEAK_LINE_DEFAULT_POS MAX_PEAK_DEMAND_MIN_VALUE_W
 #define MAX_PEAK_LINE_MIN_OFFSET_TOP_PX 20
-#define ENERGY_CHART_HEIGHT_PX 70
+#define USAGE_PANEL_HEIGHT_PX 86
+#define USAGE_ROW_HEIGHT_PX 22
+#define USAGE_ROW_TOP_PX 18
+#define USAGE_VALUE_X_PX 100
+#define USAGE_VALUE_WIDTH_PX 58
+#define USAGE_UNIT_X_PX 161
 
 // Colors
 #define TEXT_COLOR lv_color_hex(0xFFFFFF)
 #define BACKGROUND_COLOR lv_color_hex(0x000000)
+#define USAGE_LABEL_COLOR lv_color_hex(0xB3B3B3)
+#define USAGE_HEADER_COLOR lv_color_hex(0x808080)
+#define USAGE_SEPARATOR_COLOR lv_color_hex(0x333333)
 
 bool main_screen_initialized = false;
 
@@ -45,10 +54,17 @@ bool main_screen_initialized = false;
 lv_obj_t * main_screen;
 static lv_obj_t * power_consumption_label;
 static lv_obj_t * power_consumption_unit_label;
-static lv_obj_t * energy_chart;
 static lv_obj_t * peak_demand_chart;
 static lv_chart_series_t * peak_demand_chart_series;
-static lv_chart_series_t * energy_chart_series;
+static lv_obj_t * electricity_usage_label;
+static lv_obj_t * water_usage_label;
+static lv_obj_t * gas_usage_label;
+static lv_obj_t * electricity_unit_label;
+static lv_obj_t * water_unit_label;
+static lv_obj_t * gas_unit_label;
+static lv_obj_t * electricity_cost_label;
+static lv_obj_t * water_cost_label;
+static lv_obj_t * gas_cost_label;
 static lv_obj_t * time_label;
 static lv_obj_t * wifi_symbol_img;
 static lv_obj_t * connected_symbol_img;
@@ -69,6 +85,8 @@ static uint16_t new_max_peak_demand_w = MAX_PEAK_LINE_DEFAULT_POS;
 // Fonts and images
 LV_FONT_DECLARE(roboto_bold_70);
 LV_FONT_DECLARE(roboto_bold_20);
+LV_FONT_DECLARE(montserrat_18_value);
+LV_FONT_DECLARE(montserrat_12_text);
 LV_IMG_DECLARE(wifi_symbol_20_14);
 LV_IMG_DECLARE(wifi_symbol_nc_20_14);
 LV_IMG_DECLARE(connected_symbol_14_14);
@@ -80,7 +98,9 @@ static void set_peak_demand_chart_data_point(uint16_t value, uint8_t index);
 static void show_alarm_style(bool alarm);
 static void set_alarm_status(bool alarm);
 static void peak_demand_chart_draw_event_cb(lv_event_t * e);
-static void energy_chart_draw_event_cb(lv_event_t * e);
+static void create_usage_row(lv_obj_t * parent, const char * label_text, lv_color_t accent_color,
+                             const char * unit_text, lv_coord_t top, lv_obj_t ** value_label,
+                             lv_obj_t ** unit_label, lv_obj_t ** cost_label);
 static void open_settings_event_cb(lv_event_t * e);
 static void timer_1s_cb(lv_timer_t * timer);
 static void alarm_timer_cb(lv_timer_t * timer);
@@ -112,28 +132,43 @@ void main_screen_init(void)
     lv_obj_set_style_text_font(power_consumption_unit_label, &roboto_bold_20, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_label_set_text(power_consumption_unit_label, "kW");
 
-    // energy chart
-    energy_chart = lv_chart_create(main_screen);
-    lv_obj_set_width(energy_chart, LV_HOR_RES);
-    lv_obj_set_height(energy_chart, ENERGY_CHART_HEIGHT_PX);
-    lv_obj_align(energy_chart, LV_ALIGN_BOTTOM_MID, 0, -18);
-    lv_chart_set_type(energy_chart, LV_CHART_TYPE_BAR);
-    lv_chart_set_point_count(energy_chart, 45);
-    lv_chart_set_div_line_count(energy_chart,0,0);
-    lv_chart_set_axis_tick(energy_chart, LV_CHART_AXIS_PRIMARY_X, 2, 0, 5, 1, true, 20);
-    lv_chart_set_axis_tick(energy_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 0, 0, 0, false, 20);
-    lv_chart_set_axis_tick(energy_chart, LV_CHART_AXIS_SECONDARY_Y, 0, 0, 0, 0, false, 20);
-    lv_obj_set_style_pad_column(energy_chart, 1, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(energy_chart, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(energy_chart, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_outline_width(energy_chart, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_outline_pad(energy_chart, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(energy_chart, &lv_font_montserrat_12, LV_PART_TICKS | LV_STATE_DEFAULT);
-    energy_chart_series = lv_chart_add_series(energy_chart, COLOR_KWARTIWI_ORANGE, LV_CHART_AXIS_PRIMARY_Y);
-    lv_obj_add_event_cb(energy_chart, energy_chart_draw_event_cb, LV_EVENT_DRAW_PART_BEGIN, NULL);
-    for (int i = 0; i < 45; i++) {
-        lv_chart_set_next_value(energy_chart, energy_chart_series, lv_rand(0, 100));
-    }
+    // usage today panel
+    lv_obj_t * usage_separator = lv_obj_create(main_screen);
+    lv_obj_set_size(usage_separator, LV_HOR_RES, 1);
+    lv_obj_align(usage_separator, LV_ALIGN_BOTTOM_MID, 0, -(USAGE_PANEL_HEIGHT_PX + 4));
+    lv_obj_set_style_bg_color(usage_separator, USAGE_SEPARATOR_COLOR, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(usage_separator, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_clear_flag(usage_separator, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t * usage_panel = lv_obj_create(main_screen);
+    lv_obj_set_size(usage_panel, LV_HOR_RES, USAGE_PANEL_HEIGHT_PX);
+    lv_obj_align(usage_panel, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_opa(usage_panel, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(usage_panel, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_outline_width(usage_panel, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_outline_pad(usage_panel, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(usage_panel, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_clear_flag(usage_panel, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t * usage_header = lv_label_create(usage_panel);
+    lv_obj_set_style_text_color(usage_header, USAGE_HEADER_COLOR, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(usage_header, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_text(usage_header, "TODAY");
+    lv_obj_align(usage_header, LV_ALIGN_TOP_LEFT, 12, 2);
+
+    create_usage_row(usage_panel, "Electricity", COLOR_KWARTIWI_GREEN, "kWh",
+                     USAGE_ROW_TOP_PX + 0 * USAGE_ROW_HEIGHT_PX,
+                     &electricity_usage_label, &electricity_unit_label, &electricity_cost_label);
+    create_usage_row(usage_panel, "Water", COLOR_KWARTIWI_BLUE, "L",
+                     USAGE_ROW_TOP_PX + 1 * USAGE_ROW_HEIGHT_PX,
+                     &water_usage_label, &water_unit_label, &water_cost_label);
+    create_usage_row(usage_panel, "Gas", COLOR_KWARTIWI_YELLOW, "m³",
+                     USAGE_ROW_TOP_PX + 2 * USAGE_ROW_HEIGHT_PX,
+                     &gas_usage_label, &gas_unit_label, &gas_cost_label);
+
+    lv_label_set_text(electricity_usage_label, "--");
+    lv_label_set_text(water_usage_label, "--");
+    lv_label_set_text(gas_usage_label, "--");
 
     // peak demand chart
     peak_demand_chart = lv_chart_create(main_screen);
@@ -231,6 +266,78 @@ void ui_set_power_consumption(uint16_t value) {
         lv_label_set_text(power_consumption_unit_label, "kW");
     }
     lv_obj_align_to(power_consumption_unit_label, power_consumption_label, LV_ALIGN_OUT_RIGHT_BOTTOM, 10, 0);
+}
+
+/**
+ * @brief Set the usage totals for today
+ *
+ * A negative value means the value is not available yet; the label will show "--".
+ *
+ * @param[in] electricity_kwh The electricity used today in kWh
+ * @param[in] water_l The water used today in litres
+ * @param[in] gas_m3 The gas used today in cubic metres
+ */
+void ui_set_usage_today(float electricity_kwh, float water_l, float gas_m3) {
+    if (!main_screen_initialized) {
+        return;
+    }
+
+    if (electricity_kwh < 0) {
+        lv_label_set_text(electricity_usage_label, "--");
+    }
+    else {
+        lv_label_set_text_fmt(electricity_usage_label, "%.2f", electricity_kwh);
+    }
+
+    if (water_l < 0) {
+        lv_label_set_text(water_usage_label, "--");
+    }
+    else {
+        lv_label_set_text_fmt(water_usage_label, "%.1f", water_l);
+    }
+
+    if (gas_m3 < 0) {
+        lv_label_set_text(gas_usage_label, "--");
+    }
+    else {
+        lv_label_set_text_fmt(gas_usage_label, "%.2f", gas_m3);
+    }
+}
+
+/**
+ * @brief Set the cost totals for today
+ *
+ * A negative value means the value is not available yet; the label will show "--".
+ *
+ * @param[in] electricity_eur The electricity cost today in euro
+ * @param[in] water_eur The water cost today in euro
+ * @param[in] gas_eur The gas cost today in euro
+ */
+void ui_set_cost_today(float electricity_eur, float water_eur, float gas_eur) {
+    if (!main_screen_initialized) {
+        return;
+    }
+
+    if (electricity_eur < 0) {
+        lv_label_set_text(electricity_cost_label, "--");
+    }
+    else {
+        lv_label_set_text_fmt(electricity_cost_label, "€%.2f", electricity_eur);
+    }
+
+    if (water_eur < 0) {
+        lv_label_set_text(water_cost_label, "--");
+    }
+    else {
+        lv_label_set_text_fmt(water_cost_label, "€%.2f", water_eur);
+    }
+
+    if (gas_eur < 0) {
+        lv_label_set_text(gas_cost_label, "--");
+    }
+    else {
+        lv_label_set_text_fmt(gas_cost_label, "€%.2f", gas_eur);
+    }
 }
 
 /**
@@ -439,6 +546,60 @@ static void alarm_timer_cb(lv_timer_t * timer)
 }
 
 /**
+ * @brief Create one row in the usage-today panel
+ *
+ * @param[in] parent The panel to add the row to
+ * @param[in] label_text The name of the utility
+ * @param[in] accent_color The color of the accent dot
+ * @param[in] unit_text The unit shown next to the value
+ * @param[in] top The y position of the row relative to the panel
+ * @param[out] value_label The created usage value label
+ * @param[out] unit_label The created unit label
+ * @param[out] cost_label The created cost label
+ */
+static void create_usage_row(lv_obj_t * parent, const char * label_text, lv_color_t accent_color,
+                             const char * unit_text, lv_coord_t top, lv_obj_t ** value_label,
+                             lv_obj_t ** unit_label, lv_obj_t ** cost_label) {
+    lv_obj_t * accent = lv_obj_create(parent);
+    lv_obj_set_size(accent, 6, 6);
+    lv_obj_set_style_radius(accent, LV_RADIUS_CIRCLE, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(accent, accent_color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(accent, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(accent, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_align(accent, LV_ALIGN_TOP_LEFT, 10, top + 8);
+    lv_obj_clear_flag(accent, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t * name_label = lv_label_create(parent);
+    lv_obj_set_style_text_color(name_label, USAGE_LABEL_COLOR, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(name_label, &montserrat_12_text, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_text(name_label, label_text);
+    lv_obj_align(name_label, LV_ALIGN_TOP_LEFT, 22, top + 4);
+
+    *cost_label = lv_label_create(parent);
+    lv_obj_set_width(*cost_label, LV_SIZE_CONTENT);
+    lv_obj_set_style_text_color(*cost_label, USAGE_LABEL_COLOR, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(*cost_label, &montserrat_12_text, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_text(*cost_label, "--");
+    lv_obj_align(*cost_label, LV_ALIGN_TOP_RIGHT, -10, top + 4);
+
+    *unit_label = lv_label_create(parent);
+    lv_obj_set_width(*unit_label, LV_SIZE_CONTENT);
+    lv_obj_set_style_text_color(*unit_label, USAGE_LABEL_COLOR, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(*unit_label, &montserrat_12_text, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_text(*unit_label, unit_text);
+    lv_obj_align(*unit_label, LV_ALIGN_TOP_LEFT, USAGE_UNIT_X_PX, top + 4);
+
+    *value_label = lv_label_create(parent);
+    lv_obj_set_width(*value_label, USAGE_VALUE_WIDTH_PX);
+    lv_obj_set_style_text_align(*value_label, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(*value_label, TEXT_COLOR, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(*value_label, &montserrat_18_value, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_long_mode(*value_label, LV_LABEL_LONG_CLIP);
+    lv_label_set_text(*value_label, "--");
+    lv_obj_align(*value_label, LV_ALIGN_TOP_LEFT, USAGE_VALUE_X_PX, top + 4);
+}
+
+/**
  * @brief Set a data point in the peak demand chart
  *
  * Set a data point in the peak demand chart at the given index to the given value.
@@ -508,21 +669,6 @@ static void open_settings_event_cb(lv_event_t * e) {
     // load the touch calibration screen
     tp_call_load_screen();
 
-}
-
-/**
- * @brief Callback for the energy chart draw event
- *
- * @todo Implement so that that the x axis shows the time of the day
- *
- * @param[in] e The event
- */
-static void energy_chart_draw_event_cb(lv_event_t * e) {
-    lv_obj_draw_part_dsc_t * dsc = lv_event_get_param(e);
-    if(dsc->part == LV_PART_TICKS && dsc->id == LV_CHART_AXIS_PRIMARY_X) {
-        const char * month[] = {"9u", "12u", "15u", "18u", "21u"};
-        lv_snprintf(dsc->text, sizeof(dsc->text), "%s", month[dsc->value]);
-    }
 }
 
 /**

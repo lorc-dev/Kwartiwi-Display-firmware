@@ -18,6 +18,8 @@ void ui_set_new_max_peak_demand(uint16_t value);
 void ui_reset_peak_demand_chart_data(void);
 void ui_add_peak_demand_data_point(time_t time, uint16_t value);
 void ui_set_predicted_peak(uint16_t value);
+void ui_set_usage_today(float electricity_kwh, float water_l, float gas_m3);
+void ui_set_cost_today(float electricity_eur, float water_eur, float gas_eur);
 void ui_set_wifi_status(bool connected);
 void ui_set_connected_status(bool connected);
 

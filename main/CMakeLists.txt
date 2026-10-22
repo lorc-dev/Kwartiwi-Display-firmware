@@ -15,6 +15,8 @@ idf_component_register(
             "ui/main_screen.c"
             "ui/fonts/roboto_bold_70.c"
             "ui/fonts/roboto_bold_20.c"
+            "ui/fonts/montserrat_18_value.c"
+            "ui/fonts/montserrat_12_text.c"
             "ui/img/settings_symbol_20_20.c"
             "ui/img/wifi_symbol_20_14.c"
             "ui/img/wifi_symbol_nc_20_14.c"

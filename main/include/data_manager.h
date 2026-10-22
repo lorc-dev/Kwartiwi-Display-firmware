@@ -16,6 +16,7 @@ ESP_EVENT_DECLARE_BASE(DATA_MANAGER_EVENTS);
 typedef enum {
     DATA_MANAGER_NEW_METER_DATA_AVAILABLE,
     DATA_MANAGER_NEW_METER_HISTORY_DATA_AVAILABLE,
+    DATA_MANAGER_NEW_USAGE_DATA_AVAILABLE,
 } data_manager_event_id_t;
 
 
@@ -33,6 +34,12 @@ enum data_manager_data_fields_e {
     DM_DF_PREDICTED_PEAK,
     DM_DF_MAX_DEMAND_YEAR,
     DM_DF_MAX_DEMAND_SHORT_TERM,
+    DM_DF_ELECTRICITY_USAGE_TODAY,
+    DM_DF_WATER_USAGE_TODAY,
+    DM_DF_GAS_USAGE_TODAY,
+    DM_DF_ELECTRICITY_COST_TODAY,
+    DM_DF_WATER_COST_TODAY,
+    DM_DF_GAS_COST_TODAY,
     DM_DF_LENGTH,
 };
 
@@ -53,6 +60,14 @@ typedef struct {
     uint8_t electricity_active_tariff;
     data_manager_demand_data_point_t max_demand_active_month;
     data_manager_demand_data_point_t predicted_peak;
+    // Usage totals for today. A negative value means no value has been received yet.
+    float electricity_usage_today_kwh;
+    float water_usage_today_l;
+    float gas_usage_today_m3;
+    // Cost totals for today, in euro.
+    float electricity_cost_today_eur;
+    float water_cost_today_eur;
+    float gas_cost_today_eur;
 } data_manager_meter_data_t;
 
 typedef struct {
@@ -78,6 +93,7 @@ void data_manager_add_max_demand_short_term_history_item(float value, time_t tim
 uint16_t data_manager_get_short_term_max_demand_history(data_manager_demand_data_point_t items[], uint16_t max_items);
 void data_manager_notify_new_meter_data_available(void);
 void data_manager_notify_new_meter_history_data_available(void);
+void data_manager_notify_new_usage_data_available(void);
 
 
 #endif //DATA_MANAGER_H

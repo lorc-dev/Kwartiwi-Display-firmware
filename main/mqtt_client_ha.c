@@ -34,6 +34,12 @@
 #define AVG_DEMAND_PREDICTION_TOPIC "kwartiwi/avg_demand_prediction"
 #define TIME_TOPIC "kwartiwi/time"
 #define AVG_DEMAND_HISTORY_TOPIC "kwartiwi/avg_demand_history"
+#define ELECTRICITY_USAGE_TOPIC "kwartiwi/electricity_usage"
+#define WATER_USAGE_TOPIC "kwartiwi/water_usage"
+#define GAS_USAGE_TOPIC "kwartiwi/gas_usage"
+#define ELECTRICITY_COST_TOPIC "kwartiwi/electricity_cost"
+#define WATER_COST_TOPIC "kwartiwi/water_cost"
+#define GAS_COST_TOPIC "kwartiwi/gas_cost"
 
 // The short term history covers 15 minutes. The server publishes 225 samples,
 // which corresponds to one sample every 4 seconds.
@@ -184,6 +190,29 @@ static void mqtt_avg_demand_prediction_data(const char *data, size_t len) {
     };
 
     data_manager_set_field(DM_DF_PREDICTED_PEAK, &predicted_peak);
+}
+
+/**
+ * @brief Handle a new usage-today value
+ *
+ * @param[in] field The data manager field to store the value in
+ * @param[in] data The payload (not NUL-terminated)
+ * @param[in] len The length of the payload
+ */
+static void mqtt_usage_data(enum data_manager_data_fields_e field, const char *data, size_t len) {
+    float usage = 0;
+
+    if (!parse_float_payload(data, len, &usage)) {
+        return;
+    }
+
+    if (usage < 0) {
+        ESP_LOGW(TAG, "Ignoring negative usage value: %f", usage);
+        return;
+    }
+
+    data_manager_set_field(field, &usage);
+    data_manager_notify_new_usage_data_available();
 }
 
 /**
@@ -338,6 +367,24 @@ static void mqtt_data_handler(esp_mqtt_client_handle_t client, esp_mqtt_event_ha
     else if (topic_matches(event->topic, event->topic_len, AVG_DEMAND_HISTORY_TOPIC)) {
         mqtt_avg_demand_history_data(client, event->data, event->data_len);
     }
+    else if (topic_matches(event->topic, event->topic_len, ELECTRICITY_USAGE_TOPIC)) {
+        mqtt_usage_data(DM_DF_ELECTRICITY_USAGE_TODAY, event->data, event->data_len);
+    }
+    else if (topic_matches(event->topic, event->topic_len, WATER_USAGE_TOPIC)) {
+        mqtt_usage_data(DM_DF_WATER_USAGE_TODAY, event->data, event->data_len);
+    }
+    else if (topic_matches(event->topic, event->topic_len, GAS_USAGE_TOPIC)) {
+        mqtt_usage_data(DM_DF_GAS_USAGE_TODAY, event->data, event->data_len);
+    }
+    else if (topic_matches(event->topic, event->topic_len, ELECTRICITY_COST_TOPIC)) {
+        mqtt_usage_data(DM_DF_ELECTRICITY_COST_TODAY, event->data, event->data_len);
+    }
+    else if (topic_matches(event->topic, event->topic_len, WATER_COST_TOPIC)) {
+        mqtt_usage_data(DM_DF_WATER_COST_TODAY, event->data, event->data_len);
+    }
+    else if (topic_matches(event->topic, event->topic_len, GAS_COST_TOPIC)) {
+        mqtt_usage_data(DM_DF_GAS_COST_TODAY, event->data, event->data_len);
+    }
     else {
         ESP_LOGW(TAG, "Unhandled topic: %.*s", event->topic_len, event->topic);
     }
@@ -356,6 +403,12 @@ static void mqtt_connected_handler(esp_mqtt_client_handle_t client) {
             AVG_DEMAND_PREDICTION_TOPIC,
             TIME_TOPIC,
             AVG_DEMAND_HISTORY_TOPIC,
+            ELECTRICITY_USAGE_TOPIC,
+            WATER_USAGE_TOPIC,
+            GAS_USAGE_TOPIC,
+            ELECTRICITY_COST_TOPIC,
+            WATER_COST_TOPIC,
+            GAS_COST_TOPIC,
     };
 
     for (size_t i = 0; i < sizeof(topics) / sizeof(topics[0]); i++) {

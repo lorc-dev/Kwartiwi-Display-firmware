@@ -35,6 +35,14 @@ void data_manager_init(void) {
         ESP_LOGE(TAG, "Failed to create data manager data mutex");
         abort();
     }
+
+    // Usage values are unknown until the first MQTT message arrives
+    data_manager_data.meter_data.electricity_usage_today_kwh = -1.0f;
+    data_manager_data.meter_data.water_usage_today_l = -1.0f;
+    data_manager_data.meter_data.gas_usage_today_m3 = -1.0f;
+    data_manager_data.meter_data.electricity_cost_today_eur = -1.0f;
+    data_manager_data.meter_data.water_cost_today_eur = -1.0f;
+    data_manager_data.meter_data.gas_cost_today_eur = -1.0f;
 }
 
 /**
@@ -74,6 +82,10 @@ void data_manager_notify_new_meter_data_available(void) {
 
 void data_manager_notify_new_meter_history_data_available(void) {
     ESP_ERROR_CHECK(esp_event_post_to(app_loop_handle, DATA_MANAGER_EVENTS, DATA_MANAGER_NEW_METER_HISTORY_DATA_AVAILABLE, NULL, 0, portMAX_DELAY));
+}
+
+void data_manager_notify_new_usage_data_available(void) {
+    ESP_ERROR_CHECK(esp_event_post_to(app_loop_handle, DATA_MANAGER_EVENTS, DATA_MANAGER_NEW_USAGE_DATA_AVAILABLE, NULL, 0, portMAX_DELAY));
 }
 
 /**
@@ -210,6 +222,24 @@ void data_manager_set_field(enum data_manager_data_fields_e field, void * value)
         case DM_DF_MAX_DEMAND_SHORT_TERM:
             // TODO: Implement setting of short term max demand
             break;
+        case DM_DF_ELECTRICITY_USAGE_TODAY:
+            data_manager_data.meter_data.electricity_usage_today_kwh = *(float *)value;
+            break;
+        case DM_DF_WATER_USAGE_TODAY:
+            data_manager_data.meter_data.water_usage_today_l = *(float *)value;
+            break;
+        case DM_DF_GAS_USAGE_TODAY:
+            data_manager_data.meter_data.gas_usage_today_m3 = *(float *)value;
+            break;
+        case DM_DF_ELECTRICITY_COST_TODAY:
+            data_manager_data.meter_data.electricity_cost_today_eur = *(float *)value;
+            break;
+        case DM_DF_WATER_COST_TODAY:
+            data_manager_data.meter_data.water_cost_today_eur = *(float *)value;
+            break;
+        case DM_DF_GAS_COST_TODAY:
+            data_manager_data.meter_data.gas_cost_today_eur = *(float *)value;
+            break;
         case DM_DF_LENGTH:
             ESP_LOGE(TAG, "Invalid data manager data field");
             break;
@@ -270,6 +300,24 @@ void data_manager_get_field(enum data_manager_data_fields_e field, void * value)
             break;
         case DM_DF_MAX_DEMAND_SHORT_TERM:
             // TODO: Implement getting of short term max demand
+            break;
+        case DM_DF_ELECTRICITY_USAGE_TODAY:
+            *(float *) value = data_manager_data.meter_data.electricity_usage_today_kwh;
+            break;
+        case DM_DF_WATER_USAGE_TODAY:
+            *(float *) value = data_manager_data.meter_data.water_usage_today_l;
+            break;
+        case DM_DF_GAS_USAGE_TODAY:
+            *(float *) value = data_manager_data.meter_data.gas_usage_today_m3;
+            break;
+        case DM_DF_ELECTRICITY_COST_TODAY:
+            *(float *) value = data_manager_data.meter_data.electricity_cost_today_eur;
+            break;
+        case DM_DF_WATER_COST_TODAY:
+            *(float *) value = data_manager_data.meter_data.water_cost_today_eur;
+            break;
+        case DM_DF_GAS_COST_TODAY:
+            *(float *) value = data_manager_data.meter_data.gas_cost_today_eur;
             break;
         case DM_DF_LENGTH:
             ESP_LOGE(TAG, "Invalid data manager data field");

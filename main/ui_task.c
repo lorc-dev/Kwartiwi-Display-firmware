@@ -4,6 +4,7 @@
  */
 
 #include <sys/cdefs.h>
+#include <inttypes.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_heap_caps.h"
@@ -21,7 +22,7 @@
 #include "tsc2046.h"
 #include "data_manager.h"
 #include "networking.h"
-#include "web_client.h"
+#include "mqtt_client_ha.h"
 #include "ui_task.h"
 
 #define PIXEL_CLOCK_HZ  (10 * 1000 * 1000)  // 10 MHz
@@ -87,7 +88,7 @@ _Noreturn void ui_task(void *pvParameters) {
 
     // Register event handlers, which will update the UI
     esp_event_handler_register_with(app_loop_handle, DATA_MANAGER_EVENTS, ESP_EVENT_ANY_ID, update_ui_on_event, NULL);
-    esp_event_handler_register_with(app_loop_handle, WEB_CLIENT_EVENTS, ESP_EVENT_ANY_ID, update_ui_on_event, NULL);
+    esp_event_handler_register_with(app_loop_handle, MQTT_CLIENT_HA_EVENTS, ESP_EVENT_ANY_ID, update_ui_on_event, NULL);
     esp_event_handler_register_with(app_loop_handle, NETWORKING_EVENTS, ESP_EVENT_ANY_ID, update_ui_on_event, NULL);
 
     xSemaphoreTake(lvgl_mutex, portMAX_DELAY);
@@ -526,8 +527,9 @@ static void update_ui_on_event(void* handler_arg, esp_event_base_t base, int32_t
     static wifi_ap_record_t * ap_records;
     static ui_wifi_network_t * wifi_networks;
     static bool first_run = true;
+    static bool history_set = false;
 
-    ESP_LOGD(TAG, "Event dispatched from event loop: %s, %ld", base, id);
+    ESP_LOGD(TAG, "Event dispatched from event loop: %s, %" PRIi32, base, id);
 
     if (xSemaphoreTake(lvgl_mutex, pdMS_TO_TICKS(500)) != pdTRUE) {
         ESP_LOGE(TAG, "Could not take lvgl mutex within 500ms");
@@ -553,6 +555,19 @@ static void update_ui_on_event(void* handler_arg, esp_event_base_t base, int32_t
         data_manager_history_data_t *history_data = data_manager_get_history_data();
         switch ((data_manager_event_id_t)id) {
             case DATA_MANAGER_NEW_METER_DATA_AVAILABLE:
+                // TODO: update the available fields independently instead of waiting for a complete data set
+                if (meter_data->max_demand_active_month.demand <= 0.0001 ||
+                        meter_data->p1_timestamp == 0 ||
+                        meter_data->current_avg_demand <= 0.0001 ||
+                        !history_set
+                ) {
+                    ESP_LOGD(TAG, "Waiting for data: max_demand_month=%f, timestamp=%" PRId64 ", avg_demand=%f, history_set=%d",
+                             meter_data->max_demand_active_month.demand,
+                             (int64_t) meter_data->p1_timestamp,
+                             meter_data->current_avg_demand,
+                             history_set);
+                    break;
+                }
                 ESP_LOGD(TAG, "New meter data available, updating UI");
                 ui_set_power_consumption((uint16_t) (meter_data->current_power_usage * 1000));
                 ui_set_predicted_peak((uint16_t) (meter_data->predicted_peak.demand * 1000));
@@ -571,35 +586,21 @@ static void update_ui_on_event(void* handler_arg, esp_event_base_t base, int32_t
                 for (uint16_t i = 0; i < history_data->max_demand_short_term_items; i++) {
                     ui_add_peak_demand_data_point(history_data->max_demand_short_term[i].timestamp, (uint16_t) (history_data->max_demand_short_term[i].demand * 1000));
                 }
+                history_set = true;
                 break;
         }
         xSemaphoreGive(data_manager_mutex_handle);
 
     }
-    else if (base == WEB_CLIENT_EVENTS) {
-        SemaphoreHandle_t web_client_found_servers_mutex_handle;
-        switch ((web_client_event_id_t)id) {
-            case WEB_CLIENT_INITIALIZED:
-                break;
-            case WEB_CLIENT_EVENT_CONNECTED:
+    else if (base == MQTT_CLIENT_HA_EVENTS) {
+        switch ((mqtt_client_event_id_t)id) {
+            case MQTT_CLIENT_EVENT_CONNECTED:
                 ui_set_connected_status(true);
                 break;
-            case WEB_CLIENT_EVENT_DISCONNECTED:
+            case MQTT_CLIENT_EVENT_DISCONNECTED:
                 ui_set_connected_status(false);
                 break;
-            case WEB_CLIENT_SERVERS_FOUND:
-                web_client_found_servers_mutex_handle = web_client_get_found_servers_mutex();
-                xSemaphoreTake(web_client_found_servers_mutex_handle, portMAX_DELAY);
-                web_client_server_t *servers;
-                uint8_t server_count = web_client_get_found_servers(&servers);
-                ui_server_t *ui_servers = malloc(sizeof(ui_server_t) * server_count);
-                for (uint8_t i = 0; i < server_count; i++) {
-                    ui_servers[i].ipv4 = servers[i].ip.u_addr.ip4.addr;
-                    strncpy(ui_servers[i].hostname, servers[i].hostname, sizeof(ui_servers[i].hostname));
-                }
-                xSemaphoreGive(web_client_found_servers_mutex_handle);
-                ui_set_servers_found(ui_servers, server_count);
-                free(ui_servers);
+            default:
                 break;
         }
     }

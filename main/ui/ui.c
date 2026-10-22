@@ -12,7 +12,7 @@ static bool network_initialized = false;
 static bool setup_completed = false;
 static bool wifi_connected = false;
 static bool wifi_connected_tried = false;
-static bool web_client_started = false;
+static bool mqtt_client_started = false;
 static lv_timer_t * loading_screen_timer;
 
 // Function prototypes
@@ -85,10 +85,10 @@ void ui_set_wifi_connected(const bool value) {
     wifi_connected = value;
     wifi_connected_tried = false;
 
-    if (wifi_connected && setup_completed && !web_client_started) {
-        UI_LOGD(TAG, "Starting the web client");
-        web_client_started = true;
-        ui_start_web_client();
+    if (wifi_connected && setup_completed && !mqtt_client_started) {
+        UI_LOGD(TAG, "Starting the MQTT client");
+        mqtt_client_started = true;
+        ui_start_mqtt_client();
     }
 
     if (main_screen_initialized) {

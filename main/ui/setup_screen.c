@@ -334,6 +334,7 @@ static void show_state(const setup_state_t state) {
             lv_obj_add_flag(next_btn, LV_OBJ_FLAG_HIDDEN);
             break;
         case STATE_SERVER_SELECT:
+            // TODO: populate the roller with the discovered MQTT brokers
             lv_label_set_text(instruction_label, INSTRUCTION_SERVER_SELECT_TEXT);
             lv_bar_set_value(progress_bar, 80, LV_ANIM_OFF);
             lv_obj_clear_flag(loading_spinner, LV_OBJ_FLAG_HIDDEN);

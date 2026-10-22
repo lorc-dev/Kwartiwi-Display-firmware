@@ -8,7 +8,7 @@ idf_component_register(
             "ui/ui.c"
             "ui/tp_cal_screen.c"
             "ui/img/tp_cal_cross_img.c"
-            "web_client.c"
+            "mqtt_client_ha.c"
             "data_manager.c"
             "ui/img/kwartiwi_logo.c"
             "ui/loading_screen.c"

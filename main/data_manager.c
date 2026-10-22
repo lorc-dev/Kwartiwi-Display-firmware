@@ -3,7 +3,7 @@
  * @brief Data manager
  *
  * The data manager is responsible for managing the data used by the application.
- * The data can be set by different data providers (e.g. the web client) and can be used by the rest of the application.
+ * The data can be set by different data providers (e.g. the MQTT client) and can be used by the rest of the application.
  */
 
 #include <stdint.h>

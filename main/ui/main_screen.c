@@ -295,7 +295,7 @@ void ui_set_new_max_peak_demand(uint16_t value) {
 /**
  * @brief Set a data point in the peak demand chart
  *
- * @todo Alarm the user if the value is higher than the current max peak?
+ * @todo Make the alarm even more prominent when the peak demand is higher than the previous monthly maximum (e.g. beep every 15s instead of 30s)
  *
  * @param[in] time The time of the data point
  * @param[in] value The value of the data point in Watt
@@ -491,6 +491,9 @@ static void set_alarm_status(bool alarm) {
     else {
         // Stop the alarm timer
         lv_timer_pause(alarm_timer);
+
+        // Hide the alarm style
+        show_alarm_style(false);
     }
 }
 

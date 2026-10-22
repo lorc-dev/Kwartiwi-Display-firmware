@@ -10,7 +10,6 @@
 #include "buzzer.h"
 #include "ui_task.h"
 #include "tsc2046.h"
-#include "web_client.h"
 #include "data_manager.h"
 
 esp_event_loop_handle_t app_loop_handle;
@@ -72,7 +71,4 @@ void app_main(void) {
     // Initialize networking
     esp_log_level_set("networking", ESP_LOG_DEBUG);
     setup_networking();
-
-    esp_log_level_set("web_client", ESP_LOG_DEBUG);
-
 }

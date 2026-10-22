@@ -55,10 +55,10 @@ typedef struct {
 #include "esp_log.h"
 #include "data_manager.h"
 #include "networking.h"
-#include "web_client.h"
 #include "tp_cal_screen.h"
 #include "buzzer.h"
 #include "tsc2046.h"
+#include "mqtt_client_ha.h"
 
 #define NVS_GENERAL_NAMESPACE "general"
 #define NVS_SETUP_KEY "setup_done"
@@ -195,15 +195,14 @@ static inline void ui_connect_wifi(void) {
 }
 
 /**
- * @brief Start the web client
+ * @brief Start the MQTT client
  */
-static inline void ui_start_web_client(void) {
+static inline void ui_start_mqtt_client(void) {
 #if SIMULATOR
 
 #else
-    // Run the web client
-    esp_log_level_set("web_client", ESP_LOG_DEBUG);
-    xTaskCreatePinnedToCore(&web_client_task, "web_client_task", 4096, NULL, 5, NULL,1);
+    esp_log_level_set("mqtt_client_ha", ESP_LOG_DEBUG);
+    mqtt_client_init();
 #endif
 }
 
@@ -234,12 +233,14 @@ static inline void ui_set_wifi_config(const char *const ssid, const char *const 
 
 /**
  * @brief Start a scan for available servers
+ *
+ * @note Server discovery is not implemented for the MQTT client yet.
  */
 static inline void ui_find_servers(void) {
 #if SIMULATOR
 
 #else
-    web_client_find_servers();
+    // TODO: discover the MQTT broker on the network
 #endif
 }
 
@@ -254,8 +255,9 @@ static inline void ui_save_config(const char *const wifi_ssid, const char *const
 #if SIMULATOR
 
 #else
+    (void) server_hostname;  // TODO: save the MQTT broker configuration
+
     ESP_ERROR_CHECK(networking_save_wifi_config(wifi_ssid, wifi_passphrase));
-    ESP_ERROR_CHECK(web_client_save_server_config(server_hostname));
 #endif
 }
 
